@@ -6,8 +6,7 @@
 
 ## 🎬 Demo Video
 
-<video src="https://github.com/naren-msft/azure-apim-ai-gateway-failover-demo/releases/download/v1.0/demo-video.mp4" width="100%" controls autoplay muted>
-  Your browser does not support the video tag.
+<video src="https://github.com/naren-msft/azure-apim-ai-gateway-failover-demo/raw/master/assets/demo-video.mp4" width="100%" autoplay muted loop controls playsinline>
 </video>
 
 ## Architecture
