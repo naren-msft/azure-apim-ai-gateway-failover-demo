@@ -1,21 +1,26 @@
 # Azure APIM AI Gateway + Foundry Agent Demo
 
 > Demonstrates Azure API Management AI Gateway load-balancing and 429 failover
-> across two Azure OpenAI (GPT-4o) deployments, with an AI Agent built on the
-> latest Azure AI Foundry SDK.
+> across two Azure OpenAI (GPT-4.1) deployments in East US 2 and Sweden Central,
+> with an AI Agent built on the latest Azure AI Foundry SDK.
+
+## 🎬 Demo Video
+
+https://github.com/user-attachments/assets/demo-video
+
+> **[▶️ Watch the full demo video](https://github.com/naren-msft/azure-apim-ai-gateway-failover-demo/releases/download/v1.0/demo-video.mp4)** — Shows the live dashboard with 429 failover, circuit breaker tripping, policy animation, and traffic shifting between regions in real time.
 
 ## Architecture
 
 ```
-User ──► FastAPI ──► Azure AI Foundry Agent Service
-                          │
-                          ▼
-                    Azure APIM (AI Gateway)
-                     ┌────┴────┐
-                     ▼         ▼
-              Azure OpenAI   Azure OpenAI
-              (East US 2)    (West US 2)
-              GPT-4o         GPT-4o
+User ──► FastAPI ──► Azure APIM (AI Gateway)
+                      ┌────────┴────────┐
+                      ▼                  ▼
+               Azure OpenAI        Azure OpenAI
+               (East US 2)        (Sweden Central)
+               GPT-4.1             GPT-4.1
+
+         ──► AI Foundry Agent (RAG mode with vector store)
 ```
 
 **How it works:**
