@@ -4,9 +4,11 @@
 > across two Azure OpenAI (GPT-4.1) deployments in East US 2 and Sweden Central,
 > with an AI Agent built on the latest Azure AI Foundry SDK.
 
-## 🎬 Demo Video
+## 🎬 Demo
 
-![Azure APIM AI Gateway Failover Demo](assets/demo.gif)
+<p align="center">
+  <img src="https://raw.githubusercontent.com/naren-msft/azure-apim-ai-gateway-failover-demo/master/assets/demo.gif" alt="Azure APIM AI Gateway Failover Demo" width="100%">
+</p>
 
 ## Architecture
 
