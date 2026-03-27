@@ -6,9 +6,7 @@
 
 ## 🎬 Demo
 
-<p align="center">
-  <img src="https://raw.githubusercontent.com/naren-msft/azure-apim-ai-gateway-failover-demo/master/assets/demo.gif" alt="Azure APIM AI Gateway Failover Demo" width="100%">
-</p>
+![Demo](./assets/demo.gif)
 
 ## Architecture
 
