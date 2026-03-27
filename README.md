@@ -42,7 +42,7 @@ User ──► FastAPI ──► Azure APIM (AI Gateway)
 ### 1. Clone & set up the virtual environment
 
 ```powershell
-cd C:\Users\namirineni\source\apim-ai-gateway-demo
+cd C:\path\to\apim-ai-gateway-demo
 
 # Create and activate virtual environment
 python -m venv .venv
@@ -93,7 +93,7 @@ Open [http://localhost:8000](http://localhost:8000) in your browser.
 In a second terminal:
 
 ```powershell
-cd C:\Users\namirineni\source\apim-ai-gateway-demo
+cd C:\path\to\apim-ai-gateway-demo
 .\.venv\Scripts\Activate.ps1
 
 # Send 50 concurrent requests to trigger 429s

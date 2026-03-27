@@ -151,7 +151,7 @@ def _raw_apim_call(messages: list[dict], max_tokens: int = 800) -> dict:
                 "headers": {
                     "api-key": masked_key,
                     "Content-Type": "application/json",
-                    "Host": "ai-gateway-naren.azure-api.net",
+                    "Host": "<your-apim-instance>.azure-api.net",
                 },
             },
             "response": {"status": resp.status_code, "headers": captured},

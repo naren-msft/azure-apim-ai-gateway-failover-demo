@@ -409,10 +409,10 @@
     <span class="cfg-tag">&lt;set-header</span> <span class="cfg-attr">name</span>=<span class="cfg-val">"x-backend-region"</span> <span class="cfg-attr">exists-action</span>=<span class="cfg-val">"override"</span><span class="cfg-tag">&gt;</span>
       <span class="cfg-tag">&lt;value&gt;</span><span class="cfg-expr">@{
         var url = context.Request.Url.ToString();
-        if (url.Contains("demo-aifoundry-resource")) {
+        if (url.Contains("<your-openai-eastus2-resource>")) {
             return "eastus2";
         }
-        if (url.Contains("nextgen-ai-1-resource")) {
+        if (url.Contains("<your-openai-swedencentral-resource>")) {
             return "swedencentral";
         }
         return "unknown";
@@ -426,7 +426,7 @@
 <span class="cfg-tag">&lt;/policies&gt;</span></div>
 
                     <div class="config-label">🟢 Backend: openai-eastus2</div>
-                    <div class="config-block"><span class="cfg-attr">URL</span>:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="cfg-val">https://demo-aifoundry-resource.openai.azure.com</span>
+                    <div class="config-block"><span class="cfg-attr">URL</span>:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="cfg-val">https://<your-openai-eastus2-resource>.openai.azure.com</span>
 <span class="cfg-attr">Protocol</span>:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="cfg-val">HTTP</span>
 <span class="cfg-attr">Auth</span>:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="cfg-val">Managed Identity (Cognitive Services OpenAI User)</span>
 
@@ -436,7 +436,7 @@
   <span class="cfg-attr">acceptRetry</span>:&nbsp;&nbsp;&nbsp;&nbsp;<span class="cfg-num">1</span><span class="cfg-cmt">× status code 200 to close circuit</span></div>
 
                     <div class="config-label">🟠 Backend: openai-swedencentral</div>
-                    <div class="config-block"><span class="cfg-attr">URL</span>:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="cfg-val">https://nextgen-ai-1-resource.openai.azure.com</span>
+                    <div class="config-block"><span class="cfg-attr">URL</span>:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="cfg-val">https://<your-openai-swedencentral-resource>.openai.azure.com</span>
 <span class="cfg-attr">Protocol</span>:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="cfg-val">HTTP</span>
 <span class="cfg-attr">Auth</span>:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="cfg-val">Managed Identity (Cognitive Services OpenAI User)</span>
 
@@ -466,8 +466,8 @@ openai-swedencentral&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="cfg-num">50
 <span class="cfg-attr">Name</span>:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="cfg-val">ai-gw-demo-sub</span>
 <span class="cfg-attr">Scope</span>:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="cfg-val">API: azure-openai-lb</span>
 <span class="cfg-attr">Header</span>:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="cfg-val">api-key</span>
-<span class="cfg-attr">APIM Instance</span>:&nbsp;&nbsp;<span class="cfg-val">ai-gateway-naren (BasicV2, East US)</span>
-<span class="cfg-attr">Azure Sub</span>:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="cfg-val">MCAPS-narendraamirineni</span></div>
+<span class="cfg-attr">APIM Instance</span>:&nbsp;&nbsp;<span class="cfg-val"><your-apim-instance> (BasicV2, East US)</span>
+<span class="cfg-attr">Azure Sub</span>:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="cfg-val"><your-subscription-name></span></div>
 
                 </div>
             </div>

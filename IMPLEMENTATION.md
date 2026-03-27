@@ -57,7 +57,7 @@ This project is a full end-to-end demo of **Azure API Management (APIM) AI Gatew
                            │
                            ▼
 ┌──────────────────────────────────────────────────────────────────┐
-│           Azure APIM: ai-gateway-naren (East US)                 │
+│           Azure APIM: <your-apim-instance> (East US)                 │
 │                                                                  │
 │   ┌─────────────────────────────────────────────────────┐        │
 │   │  Inbound Policy                                     │        │
@@ -85,7 +85,7 @@ This project is a full end-to-end demo of **Azure API Management (APIM) AI Gatew
 ┌─────────────────────────┐  ┌─────────────────────────┐
 │  Azure OpenAI           │  │  Azure OpenAI           │
 │  East US 2              │  │  Sweden Central         │
-│  demo-aifoundry-resource│  │  nextgen-ai-1-resource  │
+│  <your-openai-eastus2-resource>│  │  <your-openai-swedencentral-resource>  │
 │  Model: GPT-4.1         │  │  Model: GPT-4.1         │
 └─────────────────────────┘  └─────────────────────────┘
 ```
@@ -104,22 +104,22 @@ The load test always uses APIM mode to demonstrate failover visually.
 
 ## Azure Resources
 
-All resources are in **subscription `MCAPS-narendraamirineni`** (`7b891a84-e04b-4485-8ed5-abaeb25735e6`), resource group **`nextgen-ai-rg`**.
+All resources are in **subscription `<your-subscription-name>`** (`XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX`), resource group **`<your-resource-group>`**.
 
 ### Resource Inventory
 
 | Resource | Type | Region | Purpose |
 |----------|------|--------|---------|
-| `ai-gateway-naren` | APIM (BasicV2) | East US | AI Gateway with load balancing |
-| `demo-aifoundry-resource` | Azure OpenAI | East US 2 | Primary GPT-4.1 deployment |
-| `nextgen-ai-1-resource` | Azure OpenAI | Sweden Central | Secondary GPT-4.1 deployment |
-| `demo-aifoundry-resource` | AI Services | East US 2 | AI Foundry project host |
+| `<your-apim-instance>` | APIM (BasicV2) | East US | AI Gateway with load balancing |
+| `<your-openai-eastus2-resource>` | Azure OpenAI | East US 2 | Primary GPT-4.1 deployment |
+| `<your-openai-swedencentral-resource>` | Azure OpenAI | Sweden Central | Secondary GPT-4.1 deployment |
+| `<your-openai-eastus2-resource>` | AI Services | East US 2 | AI Foundry project host |
 
 ### Authentication
 
 Both OpenAI resources have **`disableLocalAuth=true`** — API keys are disabled, Entra ID authentication only.
 
-APIM's **system-assigned managed identity** (principal: `56ea9fe9-8cf7-4780-8f6f-00d974b8b494`) has the **"Cognitive Services OpenAI User"** role on both OpenAI resources, enabling it to authenticate via the `authentication-managed-identity` policy.
+APIM's **system-assigned managed identity** (principal: `XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX`) has the **"Cognitive Services OpenAI User"** role on both OpenAI resources, enabling it to authenticate via the `authentication-managed-identity` policy.
 
 ---
 
@@ -143,14 +143,14 @@ Two backends pointing to Azure OpenAI resources in different regions:
 
 #### openai-eastus2
 ```
-URL:       https://demo-aifoundry-resource.openai.azure.com
+URL:       https://<your-openai-eastus2-resource>.openai.azure.com
 Protocol:  HTTP
 Auth:      Managed Identity → Cognitive Services OpenAI User
 ```
 
 #### openai-swedencentral
 ```
-URL:       https://nextgen-ai-1-resource.openai.azure.com
+URL:       https://<your-openai-swedencentral-resource>.openai.azure.com
 Protocol:  HTTP
 Auth:      Managed Identity → Cognitive Services OpenAI User
 ```
@@ -212,10 +212,10 @@ Load Balancing: Weighted Round-Robin (50/50 split)
         <set-header name="x-backend-region" exists-action="override">
             <value>@{
                 var url = context.Request.Url.ToString();
-                if (url.Contains("demo-aifoundry-resource")) {
+                if (url.Contains("<your-openai-eastus2-resource>")) {
                     return "eastus2";
                 }
-                if (url.Contains("nextgen-ai-1-resource")) {
+                if (url.Contains("<your-openai-swedencentral-resource>")) {
                     return "swedencentral";
                 }
                 return "unknown";
@@ -247,17 +247,17 @@ Load Balancing: Weighted Round-Robin (50/50 split)
 
 | Property | Value |
 |----------|-------|
-| Agent ID | `asst_lg2NfVlNsWaU1La0GVnv8DuC` |
+| Agent ID | `<your-agent-id>` |
 | Model | `gpt-4.1` |
 | Name | `Contoso Assistant` |
-| Endpoint | `https://demo-aifoundry-resource.services.ai.azure.com/api/projects/demo-aifoundry` |
+| Endpoint | `https://<your-openai-eastus2-resource>.services.ai.azure.com/api/projects/demo-aifoundry` |
 | Tools | FileSearchTool (vector store RAG) |
 
 ### Vector Store
 
 | Property | Value |
 |----------|-------|
-| Store ID | `vs_J5nPrJhoPiZuBirLeXXhYOgK` |
+| Store ID | `<your-vector-store-id>` |
 | Name | `contoso-docs` |
 | Files | `product_faq.md`, `company_policies.md` |
 
@@ -271,7 +271,7 @@ from azure.identity import DefaultAzureCredential
 
 # Initialize client
 agents = AgentsClient(
-    endpoint="https://demo-aifoundry-resource.services.ai.azure.com/api/projects/demo-aifoundry",
+    endpoint="https://<your-openai-eastus2-resource>.services.ai.azure.com/api/projects/demo-aifoundry",
     credential=DefaultAzureCredential()
 )
 
@@ -324,10 +324,10 @@ Reads environment variables from `.env`:
 
 | Variable | Example |
 |----------|---------|
-| `AGENT_ENDPOINT` | `https://demo-aifoundry-resource.services.ai.azure.com/api/projects/demo-aifoundry` |
-| `AGENT_ID` | `asst_lg2NfVlNsWaU1La0GVnv8DuC` |
-| `APIM_GATEWAY_URL` | `https://ai-gateway-naren.azure-api.net/openai` |
-| `APIM_SUBSCRIPTION_KEY` | `b924c568...` |
+| `AGENT_ENDPOINT` | `https://<your-openai-eastus2-resource>.services.ai.azure.com/api/projects/demo-aifoundry` |
+| `AGENT_ID` | `<your-agent-id>` |
+| `APIM_GATEWAY_URL` | `https://<your-apim-instance>.azure-api.net/openai` |
+| `APIM_SUBSCRIPTION_KEY` | `XXXXXXXX...` |
 
 ### main.py — Endpoints
 
@@ -443,7 +443,7 @@ The UI is a single HTML file (`app/static/index.html`) with three panels:
 ### Setup
 
 ```powershell
-cd C:\Users\namirineni\source\apim-ai-gateway-demo
+cd C:\path\to\apim-ai-gateway-demo
 
 # Create and activate virtual environment
 python -m venv .venv
@@ -490,8 +490,8 @@ To reliably trigger 429s, lower the TPM (tokens per minute) on one deployment:
 ```powershell
 # Lower Sweden Central to 1K TPM to trigger rate limits quickly
 az cognitiveservices account deployment create `
-    --name nextgen-ai-1-resource `
-    --resource-group nextgen-ai-rg `
+    --name <your-openai-swedencentral-resource> `
+    --resource-group <your-resource-group> `
     --deployment-name gpt-4.1 `
     --model-name gpt-4.1 `
     --model-version "2025-04-14" `
@@ -518,8 +518,8 @@ az cognitiveservices account deployment create `
 
 ```powershell
 az cognitiveservices account deployment create `
-    --name nextgen-ai-1-resource `
-    --resource-group nextgen-ai-rg `
+    --name <your-openai-swedencentral-resource> `
+    --resource-group <your-resource-group> `
     --deployment-name gpt-4.1 `
     --model-name gpt-4.1 `
     --model-version "2025-04-14" `
