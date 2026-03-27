@@ -1,0 +1,963 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Azure APIM AI Gateway Demo</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: #f0f2f5; height: 100vh;
+            display: flex; flex-direction: column;
+        }
+        header {
+            background: linear-gradient(135deg, #0078d4, #005a9e);
+            color: white; padding: 10px 20px;
+            display: flex; align-items: center; gap: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        }
+        header h1 { font-size: 1.05rem; font-weight: 600; }
+        header .badge {
+            background: rgba(255,255,255,0.2); padding: 3px 10px;
+            border-radius: 12px; font-size: 0.72rem;
+        }
+        .header-controls { margin-left: auto; display: flex; gap: 10px; align-items: center; }
+        .header-controls select, .header-controls button {
+            padding: 5px 10px; border-radius: 6px; font-size: 0.75rem;
+            border: 1px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.15);
+            color: white; cursor: pointer;
+        }
+        .header-controls button:hover { background: rgba(255,255,255,0.3); }
+        .header-controls button.running { background: #dc3545; }
+
+        /* ---- Three-panel layout ---- */
+        .main-content { display: flex; flex: 1; overflow: hidden; }
+        .chat-panel { width: 25%; min-width: 240px; display: flex; flex-direction: column; border-right: 1px solid #e0e0e0; background: #fafafa; }
+        .insights-panel { width: 40%; display: flex; flex-direction: column; background: #fff; border-right: 1px solid #e0e0e0; overflow-y: auto; }
+        .dashboard-panel { width: 35%; display: flex; flex-direction: column; background: #fff; overflow-y: auto; }
+
+        /* ---- Chat ---- */
+        #chat-container {
+            flex: 1; overflow-y: auto; padding: 12px;
+            display: flex; flex-direction: column; gap: 10px;
+        }
+        .message {
+            max-width: 92%; padding: 8px 12px; border-radius: 10px;
+            line-height: 1.45; font-size: 0.82rem; word-wrap: break-word;
+        }
+        .message.user {
+            align-self: flex-end; background: #0078d4; color: white;
+            border-bottom-right-radius: 4px;
+        }
+        .message.assistant {
+            align-self: flex-start; background: white; color: #1a1a1a;
+            border-bottom-left-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .message .region-tag {
+            display: inline-block; margin-top: 4px; padding: 2px 6px;
+            border-radius: 6px; font-size: 0.62rem; font-weight: 600;
+        }
+        .region-eastus2 { background: #e8f5e9; color: #2e7d32; }
+        .region-swedencentral { background: #e3f2fd; color: #1565c0; }
+        .region-unknown { background: #f5f5f5; color: #666; }
+        #input-area {
+            background: white; border-top: 1px solid #e0e0e0;
+            padding: 10px 12px; display: flex; gap: 8px;
+        }
+        #input-area input {
+            flex: 1; padding: 8px 10px; border: 1px solid #d0d0d0;
+            border-radius: 6px; font-size: 0.85rem; outline: none;
+        }
+        #input-area input:focus { border-color: #0078d4; }
+        #input-area button {
+            padding: 8px 16px; background: #0078d4; color: white;
+            border: none; border-radius: 6px; font-size: 0.85rem; cursor: pointer;
+        }
+        #input-area button:disabled { background: #999; cursor: not-allowed; }
+        .typing-indicator span {
+            display: inline-block; width: 6px; height: 6px; margin: 0 2px;
+            background: #999; border-radius: 50%; animation: bounce 1.4s infinite ease-in-out;
+        }
+        .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
+        .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes bounce { 0%,80%,100%{transform:scale(0)} 40%{transform:scale(1)} }
+
+        /* ---- Insights Panel ---- */
+        .dash-section { padding: 12px 14px; border-bottom: 1px solid #eee; }
+        /* Tabs */
+        .tab-bar {
+            display: flex; border-bottom: 2px solid #e0e0e0; background: #f8f9fa;
+            padding: 0 8px; gap: 0;
+        }
+        .tab-btn {
+            padding: 8px 16px; font-size: 0.75rem; font-weight: 600;
+            border: none; background: none; color: #666; cursor: pointer;
+            border-bottom: 2px solid transparent; margin-bottom: -2px;
+            transition: all 0.2s;
+        }
+        .tab-btn:hover { color: #0078d4; background: rgba(0,120,212,0.05); }
+        .tab-btn.active { color: #0078d4; border-bottom-color: #0078d4; }
+        .tab-content { display: none; flex: 1; overflow-y: auto; }
+        .tab-content.active { display: flex; flex-direction: column; }
+
+        /* Full config tab */
+        .config-block {
+            font-family: 'Cascadia Code', Consolas, monospace; font-size: 0.68rem;
+            background: #1e1e1e; color: #d4d4d4; border-radius: 6px;
+            padding: 12px; overflow-x: auto; line-height: 1.65; white-space: pre;
+        }
+        .config-label {
+            font-size: 0.72rem; font-weight: 700; color: #0078d4;
+            margin: 12px 0 6px 0; display: flex; align-items: center; gap: 6px;
+        }
+        .config-label:first-child { margin-top: 0; }
+        .cfg-tag { color: #569cd6; }
+        .cfg-attr { color: #9cdcfe; }
+        .cfg-val { color: #ce9178; }
+        .cfg-cmt { color: #6a9955; font-style: italic; }
+        .cfg-expr { color: #dcdcaa; }
+        .cfg-kw { color: #c586c0; }
+        .cfg-str { color: #ce9178; }
+        .cfg-num { color: #b5cea8; }
+
+        .dash-section h3 { font-size: 0.8rem; color: #333; margin-bottom: 8px; font-weight: 600; }
+
+        /* Policy XML */
+        .policy-container {
+            font-family: 'Cascadia Code', Consolas, monospace; font-size: 0.68rem;
+            background: #1e1e1e; color: #d4d4d4; border-radius: 6px;
+            padding: 10px; overflow-x: auto; line-height: 1.6;
+        }
+        .policy-section {
+            padding: 2px 6px; margin: 1px 0; border-radius: 3px;
+            border-left: 3px solid transparent; transition: all 0.3s;
+        }
+        .policy-section.active {
+            background: rgba(0, 120, 212, 0.15); border-left-color: #0078d4;
+        }
+        .policy-section.error-active {
+            background: rgba(220, 53, 69, 0.15); border-left-color: #dc3545;
+        }
+        .xml-tag { color: #569cd6; }
+        .xml-attr { color: #9cdcfe; }
+        .xml-val { color: #ce9178; }
+        .xml-comment { color: #6a9955; font-style: italic; }
+        .xml-expr { color: #dcdcaa; }
+
+        /* Backend Pool Status */
+        .pool-status { display: flex; flex-direction: column; gap: 6px; }
+        .pool-backend {
+            display: flex; align-items: center; gap: 8px;
+            padding: 6px 10px; border-radius: 6px; font-size: 0.75rem;
+            background: #f8f9fa; border: 1px solid #e9ecef;
+        }
+        .pool-dot {
+            width: 10px; height: 10px; border-radius: 50%;
+            flex-shrink: 0; transition: all 0.3s;
+        }
+        .pool-dot.healthy { background: #28a745; box-shadow: 0 0 4px rgba(40,167,69,0.5); }
+        .pool-dot.tripped { background: #dc3545; box-shadow: 0 0 6px rgba(220,53,69,0.6); animation: pulse 1s infinite; }
+        .pool-circuit {
+            font-size: 0.68rem; color: #888; padding: 4px 10px;
+            background: #f0f0f0; border-radius: 4px;
+        }
+
+        /* Live Headers */
+        .headers-container {
+            font-family: 'Cascadia Code', Consolas, monospace; font-size: 0.68rem;
+            background: #1e1e1e; color: #d4d4d4; border-radius: 6px;
+            padding: 10px; max-height: 220px; overflow-y: auto;
+        }
+        .headers-section { margin-bottom: 8px; }
+        .headers-label {
+            color: #c586c0; font-weight: 600; font-size: 0.7rem;
+            margin-bottom: 3px; display: flex; align-items: center; gap: 6px;
+        }
+        .header-line { padding: 1px 0; }
+        .header-key { color: #9cdcfe; }
+        .header-val { color: #ce9178; }
+        .header-val.status-200 { color: #4ec9b0; }
+        .header-val.status-429 { color: #f44747; }
+
+        /* Pipeline stages */
+        .pipeline-container { margin-top: 8px; }
+        .pipeline-stage {
+            display: flex; align-items: center; gap: 8px;
+            padding: 4px 8px; margin: 2px 0; border-radius: 4px;
+            font-size: 0.7rem; transition: all 0.3s;
+            background: #252526;
+        }
+        .pipeline-stage.active { background: #264f78; }
+        .pipeline-stage.error { background: #442222; }
+        .pipeline-dot {
+            width: 8px; height: 8px; border-radius: 50%;
+            background: #555; flex-shrink: 0; transition: all 0.3s;
+        }
+        .pipeline-stage.active .pipeline-dot { background: #0078d4; box-shadow: 0 0 6px rgba(0,120,212,0.6); }
+        .pipeline-stage.error .pipeline-dot { background: #dc3545; box-shadow: 0 0 6px rgba(220,53,69,0.6); }
+        .pipeline-stage-name { color: #569cd6; }
+        .pipeline-stage-detail { color: #808080; }
+
+        /* ---- Dashboard ---- */
+        .arch-diagram { position: relative; height: 180px; }
+        .arch-node {
+            position: absolute; padding: 6px 10px; border-radius: 8px;
+            font-size: 0.68rem; font-weight: 600; text-align: center;
+            border: 2px solid; transition: all 0.3s; min-width: 90px;
+        }
+        .node-user { left: 50%; top: 5px; transform: translateX(-50%); background: #f3e5f5; border-color: #9c27b0; color: #7b1fa2; }
+        .node-apim { left: 50%; top: 65px; transform: translateX(-50%); background: #e3f2fd; border-color: #1976d2; color: #1565c0; min-width: 130px; }
+        .node-east { left: 20%; top: 140px; transform: translateX(-50%); background: #e8f5e9; border-color: #388e3c; color: #2e7d32; }
+        .node-sweden { left: 80%; top: 140px; transform: translateX(-50%); background: #fff3e0; border-color: #f57c00; color: #e65100; }
+        .node-active { box-shadow: 0 0 12px rgba(0,120,212,0.5); transform: scale(1.05); }
+        .node-throttled { border-color: #dc3545 !important; background: #fce4ec !important; }
+        .node-throttled::after {
+            content: '\26a0\fe0f 429'; position: absolute; top: -10px; right: -10px;
+            background: #dc3545; color: white; font-size: 0.55rem; padding: 2px 5px;
+            border-radius: 8px; animation: pulse 1s infinite;
+        }
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+        .arch-svg {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; overflow: visible;
+        }
+        .flow-line { stroke-width: 2; fill: none; stroke-dasharray: 6 4; }
+        .flow-active { stroke-width: 3; stroke-dasharray: none; animation: flowPulse 0.6s ease-in-out; }
+        @keyframes flowPulse { 0%{stroke-width:3;opacity:1} 100%{stroke-width:2;opacity:0.6} }
+
+        /* Region bars */
+        .region-bars { display: flex; gap: 10px; }
+        .region-bar-group { flex: 1; }
+        .region-bar-label { font-size: 0.68rem; color: #555; margin-bottom: 3px; display: flex; justify-content: space-between; }
+        .region-bar-track { height: 20px; background: #f0f0f0; border-radius: 4px; overflow: hidden; }
+        .region-bar-fill {
+            height: 100%; border-radius: 4px; transition: width 0.4s ease;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 0.65rem; font-weight: 600; color: white; min-width: 0;
+        }
+        .bar-east { background: linear-gradient(90deg, #4caf50, #66bb6a); }
+        .bar-sweden { background: linear-gradient(90deg, #ff9800, #ffb74d); }
+
+        /* Stats cards */
+        .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+        .stat-card {
+            background: #f8f9fa; border-radius: 8px; padding: 8px;
+            text-align: center; border: 1px solid #e9ecef;
+        }
+        .stat-card .stat-value { font-size: 1.2rem; font-weight: 700; color: #333; }
+        .stat-card .stat-label { font-size: 0.6rem; color: #888; margin-top: 2px; }
+        .stat-card.success .stat-value { color: #28a745; }
+        .stat-card.throttled .stat-value { color: #dc3545; }
+        .stat-card.failover .stat-value { color: #fd7e14; }
+
+        /* Event log */
+        #event-log {
+            max-height: 200px; overflow-y: auto; font-family: 'Cascadia Code', Consolas, monospace;
+            font-size: 0.65rem; background: #1e1e1e; color: #d4d4d4;
+            border-radius: 6px; padding: 6px;
+        }
+        .log-entry { padding: 2px 0; border-bottom: 1px solid #333; }
+        .log-entry-header { cursor: pointer; display: flex; align-items: center; gap: 4px; }
+        .log-entry-header:hover { background: #2a2a2a; }
+        .log-200 { color: #4ec9b0; }
+        .log-429 { color: #f44747; }
+        .log-503 { color: #ce9178; }
+        .log-region { color: #569cd6; }
+        .log-time { color: #808080; }
+        .log-prompt-label { color: #c586c0; }
+        .log-detail {
+            display: none; margin: 3px 0 3px 14px; padding: 5px 7px;
+            background: #252526; border-radius: 4px; border-left: 3px solid #0078d4;
+        }
+        .log-detail.open { display: block; }
+        .log-detail .prompt-text { color: #ce9178; margin-bottom: 3px; }
+        .log-detail .answer-text { color: #b5cea8; }
+        .log-detail label { color: #808080; font-size: 0.6rem; display: block; margin-bottom: 2px; }
+        .log-chevron { font-size: 0.55rem; color: #808080; transition: transform 0.2s; display: inline-block; }
+        .log-chevron.open { transform: rotate(90deg); }
+
+        @media (max-width: 1100px) {
+            .main-content { flex-direction: column; }
+            .chat-panel, .insights-panel, .dashboard-panel { width: 100%; max-height: 33vh; }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>🚀 Azure APIM AI Gateway Demo</h1>
+        <span class="badge">GPT-4.1 &middot; East US 2 + Sweden Central</span>
+        <div class="header-controls">
+            <select id="mode-select">
+                <option value="apim">APIM Gateway</option>
+                <option value="agent">Foundry Agent (RAG)</option>
+            </select>
+            <button id="load-test-btn" onclick="toggleLoadTest()">⚡ Run Load Test</button>
+        </div>
+    </header>
+
+    <div class="main-content">
+        <!-- Left: Chat (25%) -->
+        <div class="chat-panel">
+            <div id="chat-container">
+                <div class="message assistant">
+                    👋 Hi! I'm the Contoso assistant via <b>Azure APIM AI Gateway</b>.
+                    <br><br>💡 <i>Click <b>⚡ Run Load Test</b> to see 429 failover live.</i>
+                </div>
+            </div>
+            <div id="input-area">
+                <input type="text" id="user-input" placeholder="Ask a question..." autofocus />
+                <button id="send-btn" onclick="sendMessage()">Send</button>
+            </div>
+        </div>
+
+        <!-- Middle: APIM Insights (40%) -->
+        <div class="insights-panel">
+            <div class="tab-bar">
+                <button class="tab-btn active" onclick="switchTab('live')">⚡ Live Insights</button>
+                <button class="tab-btn" onclick="switchTab('config')">📄 Full APIM Config</button>
+            </div>
+
+            <!-- Tab 1: Live Insights (existing content) -->
+            <div class="tab-content active" id="tab-live">
+                <div class="dash-section">
+                    <h3>🔧 APIM Policy (Live)</h3>
+                    <div class="policy-container">
+                        <div class="policy-section"><span class="xml-tag">&lt;policies&gt;</span></div>
+                        <div class="policy-section">&nbsp;&nbsp;<span class="xml-tag">&lt;inbound&gt;</span></div>
+                        <div class="policy-section">&nbsp;&nbsp;&nbsp;&nbsp;<span class="xml-tag">&lt;base /&gt;</span></div>
+                        <div class="policy-section" id="pol-set-backend">&nbsp;&nbsp;&nbsp;&nbsp;<span class="xml-tag">&lt;set-backend-service</span> <span class="xml-attr">backend-id</span>=<span class="xml-val">"openai-lb-pool"</span> <span class="xml-tag">/&gt;</span></div>
+                        <div class="policy-section" id="pol-auth">&nbsp;&nbsp;&nbsp;&nbsp;<span class="xml-tag">&lt;authentication-managed-identity</span><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="xml-attr">resource</span>=<span class="xml-val">"https://cognitiveservices.azure.com"</span> <span class="xml-tag">/&gt;</span></div>
+                        <div class="policy-section">&nbsp;&nbsp;<span class="xml-tag">&lt;/inbound&gt;</span></div>
+                        <div class="policy-section" id="pol-backend">&nbsp;&nbsp;<span class="xml-tag">&lt;backend&gt;</span><br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="xml-tag">&lt;base /&gt;</span> <span class="xml-comment">&lt;!-- forward to weighted pool --&gt;</span><br>&nbsp;&nbsp;<span class="xml-tag">&lt;/backend&gt;</span></div>
+                        <div class="policy-section">&nbsp;&nbsp;<span class="xml-tag">&lt;outbound&gt;</span></div>
+                        <div class="policy-section" id="pol-set-header">&nbsp;&nbsp;&nbsp;&nbsp;<span class="xml-tag">&lt;set-header</span> <span class="xml-attr">name</span>=<span class="xml-val">"x-backend-region"</span><span class="xml-tag">&gt;</span><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="xml-tag">&lt;value&gt;</span><span class="xml-expr">@{<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if(url.Contains("demo-aifoundry")) return "eastus2";<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if(url.Contains("nextgen-ai-1")) return "swedencentral";<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}</span><span class="xml-tag">&lt;/value&gt;&lt;/set-header&gt;</span></div>
+                        <div class="policy-section">&nbsp;&nbsp;<span class="xml-tag">&lt;/outbound&gt;</span></div>
+                        <div class="policy-section" id="pol-onerror">&nbsp;&nbsp;<span class="xml-tag">&lt;on-error&gt;</span><br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="xml-tag">&lt;base /&gt;</span> <span class="xml-comment">&lt;!-- circuit breaker handles 429 --&gt;</span><br>&nbsp;&nbsp;<span class="xml-tag">&lt;/on-error&gt;</span></div>
+                        <div class="policy-section"><span class="xml-tag">&lt;/policies&gt;</span></div>
+                    </div>
+                </div>
+
+                <div class="dash-section">
+                    <h3>🔀 Backend Pool: <code>openai-lb-pool</code></h3>
+                    <div class="pool-status">
+                        <div class="pool-backend">
+                            <span class="pool-dot healthy" id="pool-dot-east"></span>
+                            <b>openai-eastus2</b> &nbsp; W:50, P:1
+                            <span style="margin-left:auto;font-size:0.68rem;color:#28a745" id="pool-status-east">✅ Healthy</span>
+                        </div>
+                        <div class="pool-backend">
+                            <span class="pool-dot healthy" id="pool-dot-sweden"></span>
+                            <b>openai-swedencentral</b> &nbsp; W:50, P:1
+                            <span style="margin-left:auto;font-size:0.68rem;color:#28a745" id="pool-status-sweden">✅ Healthy</span>
+                        </div>
+                        <div class="pool-circuit">🔌 Circuit Breaker: trip after 1× 429, hold open 10s</div>
+                    </div>
+                </div>
+
+                <div class="dash-section">
+                    <h3>📡 Live Request Pipeline</h3>
+                    <div class="pipeline-container" id="pipeline-display">
+                        <div class="pipeline-stage" id="pipe-inbound-route"><span class="pipeline-dot"></span> <span class="pipeline-stage-name">INBOUND</span> <span class="pipeline-stage-detail">set-backend-service → pool routing</span></div>
+                        <div class="pipeline-stage" id="pipe-inbound-auth"><span class="pipeline-dot"></span> <span class="pipeline-stage-name">INBOUND</span> <span class="pipeline-stage-detail">authentication-managed-identity → Entra ID</span></div>
+                        <div class="pipeline-stage" id="pipe-backend"><span class="pipeline-dot"></span> <span class="pipeline-stage-name">BACKEND</span> <span class="pipeline-stage-detail">forward to backend</span></div>
+                        <div class="pipeline-stage" id="pipe-outbound"><span class="pipeline-dot"></span> <span class="pipeline-stage-name">OUTBOUND</span> <span class="pipeline-stage-detail">set-header x-backend-region</span></div>
+                        <div class="pipeline-stage" id="pipe-onerror" style="display:none"><span class="pipeline-dot"></span> <span class="pipeline-stage-name">ON-ERROR</span> <span class="pipeline-stage-detail">circuit breaker tripped</span></div>
+                    </div>
+                </div>
+
+                <div class="dash-section" style="flex:1;">
+                    <h3>📋 Live Request/Response Headers</h3>
+                    <div class="headers-container" id="headers-display">
+                        <div style="color:#808080;">Waiting for requests...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab 2: Full APIM Configuration -->
+            <div class="tab-content" id="tab-config">
+                <div class="dash-section" style="flex:1;">
+
+                    <div class="config-label">📌 API: azure-openai-lb</div>
+                    <div class="config-block"><span class="cfg-attr">Name</span>:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="cfg-val">azure-openai-lb</span>
+<span class="cfg-attr">Path</span>:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="cfg-val">/openai</span>
+<span class="cfg-attr">Subscription</span>:&nbsp;&nbsp;&nbsp;<span class="cfg-val">Required (Header: api-key)</span>
+<span class="cfg-attr">Operation</span>:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="cfg-kw">POST</span> <span class="cfg-val">/deployments/{deployment-id}/chat/completions</span></div>
+
+                    <div class="config-label">🔧 Inbound / Outbound Policy</div>
+                    <div class="config-block"><span class="cfg-tag">&lt;policies&gt;</span>
+  <span class="cfg-tag">&lt;inbound&gt;</span>
+    <span class="cfg-tag">&lt;base</span> <span class="cfg-tag">/&gt;</span>
+
+    <span class="cfg-cmt">&lt;!-- Route to load-balanced backend pool --&gt;</span>
+    <span class="cfg-tag">&lt;set-backend-service</span>
+      <span class="cfg-attr">backend-id</span>=<span class="cfg-val">"openai-lb-pool"</span> <span class="cfg-tag">/&gt;</span>
+
+    <span class="cfg-cmt">&lt;!-- Authenticate with Entra ID managed identity --&gt;</span>
+    <span class="cfg-tag">&lt;authentication-managed-identity</span>
+      <span class="cfg-attr">resource</span>=<span class="cfg-val">"https://cognitiveservices.azure.com"</span> <span class="cfg-tag">/&gt;</span>
+  <span class="cfg-tag">&lt;/inbound&gt;</span>
+
+  <span class="cfg-tag">&lt;backend&gt;</span>
+    <span class="cfg-tag">&lt;base</span> <span class="cfg-tag">/&gt;</span>
+  <span class="cfg-tag">&lt;/backend&gt;</span>
+
+  <span class="cfg-tag">&lt;outbound&gt;</span>
+    <span class="cfg-tag">&lt;base</span> <span class="cfg-tag">/&gt;</span>
+
+    <span class="cfg-cmt">&lt;!-- Add response header showing which region served the request --&gt;</span>
+    <span class="cfg-tag">&lt;set-header</span> <span class="cfg-attr">name</span>=<span class="cfg-val">"x-backend-region"</span> <span class="cfg-attr">exists-action</span>=<span class="cfg-val">"override"</span><span class="cfg-tag">&gt;</span>
+      <span class="cfg-tag">&lt;value&gt;</span><span class="cfg-expr">@{
+        var url = context.Request.Url.ToString();
+        if (url.Contains("demo-aifoundry-resource")) {
+            return "eastus2";
+        }
+        if (url.Contains("nextgen-ai-1-resource")) {
+            return "swedencentral";
+        }
+        return "unknown";
+      }</span><span class="cfg-tag">&lt;/value&gt;</span>
+    <span class="cfg-tag">&lt;/set-header&gt;</span>
+  <span class="cfg-tag">&lt;/outbound&gt;</span>
+
+  <span class="cfg-tag">&lt;on-error&gt;</span>
+    <span class="cfg-tag">&lt;base</span> <span class="cfg-tag">/&gt;</span>
+  <span class="cfg-tag">&lt;/on-error&gt;</span>
+<span class="cfg-tag">&lt;/policies&gt;</span></div>
+
+                    <div class="config-label">🟢 Backend: openai-eastus2</div>
+                    <div class="config-block"><span class="cfg-attr">URL</span>:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="cfg-val">https://demo-aifoundry-resource.openai.azure.com</span>
+<span class="cfg-attr">Protocol</span>:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="cfg-val">HTTP</span>
+<span class="cfg-attr">Auth</span>:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="cfg-val">Managed Identity (Cognitive Services OpenAI User)</span>
+
+<span class="cfg-kw">Circuit Breaker:</span>
+  <span class="cfg-attr">tripDuration</span>:&nbsp;&nbsp;&nbsp;<span class="cfg-num">10</span><span class="cfg-cmt">s</span>
+  <span class="cfg-attr">tripCondition</span>:&nbsp;&nbsp;<span class="cfg-num">1</span><span class="cfg-cmt">× status code 429 in any 10s window</span>
+  <span class="cfg-attr">acceptRetry</span>:&nbsp;&nbsp;&nbsp;&nbsp;<span class="cfg-num">1</span><span class="cfg-cmt">× status code 200 to close circuit</span></div>
+
+                    <div class="config-label">🟠 Backend: openai-swedencentral</div>
+                    <div class="config-block"><span class="cfg-attr">URL</span>:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="cfg-val">https://nextgen-ai-1-resource.openai.azure.com</span>
+<span class="cfg-attr">Protocol</span>:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="cfg-val">HTTP</span>
+<span class="cfg-attr">Auth</span>:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="cfg-val">Managed Identity (Cognitive Services OpenAI User)</span>
+
+<span class="cfg-kw">Circuit Breaker:</span>
+  <span class="cfg-attr">tripDuration</span>:&nbsp;&nbsp;&nbsp;<span class="cfg-num">10</span><span class="cfg-cmt">s</span>
+  <span class="cfg-attr">tripCondition</span>:&nbsp;&nbsp;<span class="cfg-num">1</span><span class="cfg-cmt">× status code 429 in any 10s window</span>
+  <span class="cfg-attr">acceptRetry</span>:&nbsp;&nbsp;&nbsp;&nbsp;<span class="cfg-num">1</span><span class="cfg-cmt">× status code 200 to close circuit</span></div>
+
+                    <div class="config-label">⚖️ Backend Pool: openai-lb-pool</div>
+                    <div class="config-block"><span class="cfg-kw">Load Balancing:</span> <span class="cfg-val">Weighted Round-Robin</span>
+
+<span class="cfg-attr">Backend</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="cfg-attr">Weight</span>&nbsp;&nbsp;<span class="cfg-attr">Priority</span>
+<span class="cfg-cmt">──────────────────────────────────────────────</span>
+openai-eastus2&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="cfg-num">50</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="cfg-num">1</span>
+openai-swedencentral&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="cfg-num">50</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="cfg-num">1</span>
+<span class="cfg-cmt">──────────────────────────────────────────────</span>
+
+<span class="cfg-kw">Failover Behavior:</span>
+  <span class="cfg-cmt">When a backend circuit trips (429), APIM stops</span>
+  <span class="cfg-cmt">routing to it for 10s and sends all traffic to</span>
+  <span class="cfg-cmt">the healthy backend. After 10s, it probes with</span>
+  <span class="cfg-cmt">one request — if 200, circuit closes and traffic</span>
+  <span class="cfg-cmt">resumes to both backends.</span></div>
+
+                    <div class="config-label">🔑 Subscription</div>
+                    <div class="config-block"><span class="cfg-attr">Display Name</span>:&nbsp;&nbsp;&nbsp;<span class="cfg-val">AI Gateway Demo Sub</span>
+<span class="cfg-attr">Name</span>:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="cfg-val">ai-gw-demo-sub</span>
+<span class="cfg-attr">Scope</span>:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="cfg-val">API: azure-openai-lb</span>
+<span class="cfg-attr">Header</span>:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="cfg-val">api-key</span>
+<span class="cfg-attr">APIM Instance</span>:&nbsp;&nbsp;<span class="cfg-val">ai-gateway-naren (BasicV2, East US)</span>
+<span class="cfg-attr">Azure Sub</span>:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="cfg-val">MCAPS-narendraamirineni</span></div>
+
+                </div>
+            </div>
+        </div>
+
+        <!-- Right: Live Dashboard (35%) -->
+        <div class="dashboard-panel">
+            <div class="dash-section">
+                <h3>🏗️ Architecture</h3>
+                <div class="arch-diagram">
+                    <svg class="arch-svg" id="arch-svg">
+                        <line id="line-user-apim" class="flow-line" stroke="#999"/>
+                        <line id="line-apim-east" class="flow-line" stroke="#4caf50"/>
+                        <line id="line-apim-sweden" class="flow-line" stroke="#ff9800"/>
+                    </svg>
+                    <div class="arch-node node-user" id="node-user">👤 User</div>
+                    <div class="arch-node node-apim" id="node-apim">🔀 APIM Gateway</div>
+                    <div class="arch-node node-east" id="node-east">🟢 East US 2<br><small>GPT-4.1</small></div>
+                    <div class="arch-node node-sweden" id="node-sweden">🟠 Sweden Central<br><small>GPT-4.1</small></div>
+                </div>
+            </div>
+
+            <div class="dash-section">
+                <h3>📊 Live Statistics</h3>
+                <div class="stats-row">
+                    <div class="stat-card"><div class="stat-value" id="stat-total">0</div><div class="stat-label">Total</div></div>
+                    <div class="stat-card success"><div class="stat-value" id="stat-success">0</div><div class="stat-label">Success</div></div>
+                    <div class="stat-card throttled"><div class="stat-value" id="stat-429">0</div><div class="stat-label">429s</div></div>
+                    <div class="stat-card failover"><div class="stat-value" id="stat-failover">0</div><div class="stat-label">Failovers</div></div>
+                </div>
+            </div>
+
+            <div class="dash-section">
+                <h3>🌍 Region Distribution</h3>
+                <div class="region-bars">
+                    <div class="region-bar-group">
+                        <div class="region-bar-label"><span>East US 2</span><span id="bar-east-pct">0%</span></div>
+                        <div class="region-bar-track"><div class="region-bar-fill bar-east" id="bar-east" style="width:0%"></div></div>
+                    </div>
+                    <div class="region-bar-group">
+                        <div class="region-bar-label"><span>Sweden Central</span><span id="bar-sweden-pct">0%</span></div>
+                        <div class="region-bar-track"><div class="region-bar-fill bar-sweden" id="bar-sweden" style="width:0%"></div></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="dash-section" style="flex:1;">
+                <h3>📋 Event Log</h3>
+                <div id="event-log"><div class="log-entry log-time">Waiting for requests...</div></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const chatContainer = document.getElementById('chat-container');
+        const userInput = document.getElementById('user-input');
+        const sendBtn = document.getElementById('send-btn');
+        const eventLog = document.getElementById('event-log');
+        const headersDisplay = document.getElementById('headers-display');
+
+        let stats = { total: 0, success: 0, throttled: 0, failover: 0, east: 0, sweden: 0 };
+        let loadTestRunning = false;
+        let loadTestAbort = null;
+
+        /* ---- Tab Switching ---- */
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            document.getElementById('tab-' + tabId).classList.add('active');
+            event.currentTarget.classList.add('active');
+        }
+
+        userInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !sendBtn.disabled) sendMessage();
+        });
+
+        /* ---- Policy Animation ---- */
+        function animatePolicy(pipeline) {
+            document.querySelectorAll('.policy-section').forEach(el => {
+                el.classList.remove('active', 'error-active');
+            });
+            document.querySelectorAll('.pipeline-stage').forEach(el => {
+                el.classList.remove('active', 'error');
+            });
+            document.getElementById('pipe-onerror').style.display = 'none';
+            document.getElementById('pipe-outbound').style.display = '';
+
+            if (!pipeline || !pipeline.length) return;
+
+            pipeline.forEach((p, i) => {
+                setTimeout(() => {
+                    if (p.policy === 'set-backend-service') {
+                        document.getElementById('pol-set-backend').classList.add('active');
+                        document.getElementById('pipe-inbound-route').classList.add('active');
+                        document.getElementById('pipe-inbound-route').querySelector('.pipeline-stage-detail').textContent =
+                            'set-backend-service ' + p.detail;
+                    }
+                    if (p.policy === 'authentication-managed-identity') {
+                        document.getElementById('pol-auth').classList.add('active');
+                        document.getElementById('pipe-inbound-auth').classList.add('active');
+                    }
+                    if (p.policy === 'forward') {
+                        const isErr = p.detail.includes('429');
+                        document.getElementById('pol-backend').classList.add(isErr ? 'error-active' : 'active');
+                        const pb = document.getElementById('pipe-backend');
+                        pb.classList.add(isErr ? 'error' : 'active');
+                        pb.querySelector('.pipeline-stage-detail').textContent = 'forward ' + p.detail;
+                    }
+                    if (p.policy === 'set-header') {
+                        document.getElementById('pol-set-header').classList.add('active');
+                        document.getElementById('pipe-outbound').classList.add('active');
+                        document.getElementById('pipe-outbound').querySelector('.pipeline-stage-detail').textContent =
+                            'set-header ' + p.detail;
+                    }
+                    if (p.policy === 'circuit-breaker') {
+                        document.getElementById('pol-onerror').classList.add('error-active');
+                        document.getElementById('pipe-outbound').style.display = 'none';
+                        const pe = document.getElementById('pipe-onerror');
+                        pe.style.display = '';
+                        pe.classList.add('error');
+                        pe.querySelector('.pipeline-stage-detail').textContent = 'circuit breaker ' + p.detail;
+                    }
+                }, i * 200);
+            });
+        }
+
+        /* ---- Headers Display ---- */
+        function updateHeaders(hi) {
+            if (!hi) return;
+            const req = hi.request;
+            const resp = hi.response;
+            const sCls = resp.status === 200 ? 'status-200' : resp.status === 429 ? 'status-429' : '';
+
+            let h = '<div class="headers-section">';
+            h += '<div class="headers-label">▶ Request</div>';
+            h += '<div class="header-line"><span class="header-key">' + req.method + '</span> <span class="header-val">' + esc(req.url) + '</span></div>';
+            for (const [k, v] of Object.entries(req.headers)) {
+                h += '<div class="header-line"><span class="header-key">' + esc(k) + ':</span> <span class="header-val">' + esc(v) + '</span></div>';
+            }
+            h += '</div><div class="headers-section">';
+            h += '<div class="headers-label">▶ Response <span class="header-val ' + sCls + '">' + resp.status + '</span></div>';
+            for (const [k, v] of Object.entries(resp.headers)) {
+                h += '<div class="header-line"><span class="header-key">' + esc(k) + ':</span> <span class="header-val">' + esc(v) + '</span></div>';
+            }
+            h += '</div>';
+            headersDisplay.innerHTML = h;
+        }
+
+        /* ---- Pool Status ---- */
+        function updatePoolStatus(region, status) {
+            if (status === 429) {
+                const dotId = region === 'swedencentral' ? 'pool-dot-sweden' : 'pool-dot-east';
+                const sId = region === 'swedencentral' ? 'pool-status-sweden' : 'pool-status-east';
+                document.getElementById(dotId).className = 'pool-dot tripped';
+                document.getElementById(sId).innerHTML = '⚠️ <span style="color:#dc3545">Tripped</span>';
+            } else if (status === 200) {
+                const dotId = region === 'swedencentral' ? 'pool-dot-sweden' : 'pool-dot-east';
+                const sId = region === 'swedencentral' ? 'pool-status-sweden' : 'pool-status-east';
+                document.getElementById(dotId).className = 'pool-dot healthy';
+                document.getElementById(sId).innerHTML = '✅ Healthy';
+            }
+        }
+
+        /* ---- Event Log ---- */
+        function logEvent(status, region, detail, prompt, answer) {
+            const time = new Date().toLocaleTimeString();
+            const cls = status === 200 ? 'log-200' : status === 429 ? 'log-429' : 'log-503';
+            const icon = status === 200 ? '\u2705' : status === 429 ? '\u26a0\ufe0f' : status === 0 ? '\u2139\ufe0f' : '\u274c';
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+
+            const hasP = prompt && prompt.length > 0;
+
+            /* Build header row */
+            const header = document.createElement('div');
+            header.className = 'log-entry-header';
+
+            let chevron = null;
+            let detailDiv = null;
+
+            if (hasP) {
+                chevron = document.createElement('span');
+                chevron.className = 'log-chevron';
+                chevron.textContent = '\u25b6';
+                header.appendChild(chevron);
+                header.style.cursor = 'pointer';
+            }
+
+            const timeSpan = document.createElement('span');
+            timeSpan.className = 'log-time';
+            timeSpan.textContent = time;
+            header.appendChild(timeSpan);
+            header.appendChild(document.createTextNode(' ' + icon + ' '));
+
+            const statusSpan = document.createElement('span');
+            statusSpan.className = cls;
+            statusSpan.textContent = status;
+            header.appendChild(statusSpan);
+            header.appendChild(document.createTextNode(' \u2192 '));
+
+            const regionSpan = document.createElement('span');
+            regionSpan.className = 'log-region';
+            regionSpan.textContent = region;
+            header.appendChild(regionSpan);
+            header.appendChild(document.createTextNode(' '));
+
+            if (hasP) {
+                const promptSpan = document.createElement('span');
+                promptSpan.className = 'log-prompt-label';
+                promptSpan.textContent = '"' + prompt.substring(0, 30) + (prompt.length > 30 ? '\u2026' : '') + '"';
+                header.appendChild(promptSpan);
+            } else if (detail) {
+                header.appendChild(document.createTextNode(detail));
+            }
+
+            entry.appendChild(header);
+
+            /* Build expandable detail */
+            if (hasP) {
+                detailDiv = document.createElement('div');
+                detailDiv.className = 'log-detail';
+
+                const pLabel = document.createElement('label');
+                pLabel.textContent = '\ud83d\udce4 Prompt:';
+                detailDiv.appendChild(pLabel);
+                const pText = document.createElement('div');
+                pText.className = 'prompt-text';
+                pText.textContent = prompt;
+                detailDiv.appendChild(pText);
+
+                if (answer) {
+                    const aLabel = document.createElement('label');
+                    aLabel.textContent = '\ud83d\udce5 Response:';
+                    detailDiv.appendChild(aLabel);
+                    const aText = document.createElement('div');
+                    aText.className = 'answer-text';
+                    aText.textContent = answer;
+                    detailDiv.appendChild(aText);
+                } else if (status === 429) {
+                    const aLabel = document.createElement('label');
+                    aLabel.textContent = '\ud83d\udce5 Response:';
+                    detailDiv.appendChild(aLabel);
+                    const aText = document.createElement('div');
+                    aText.className = 'answer-text';
+                    aText.style.color = '#f44747';
+                    aText.textContent = 'Rate limited (429)';
+                    detailDiv.appendChild(aText);
+                }
+
+                entry.appendChild(detailDiv);
+
+                header.addEventListener('click', function() {
+                    detailDiv.classList.toggle('open');
+                    chevron.classList.toggle('open');
+                });
+            }
+
+            eventLog.appendChild(entry);
+            eventLog.scrollTop = eventLog.scrollHeight;
+        }
+
+        function esc(text) {
+            const d = document.createElement('div');
+            d.textContent = text;
+            return d.innerHTML;
+        }
+
+        /* ---- Dashboard Stats ---- */
+        function updateDashboard(region, status) {
+            stats.total++;
+            if (status === 200) stats.success++;
+            if (status === 429) stats.throttled++;
+            if (region === 'eastus2') stats.east++;
+            else if (region === 'swedencentral') stats.sweden++;
+
+            const total = stats.east + stats.sweden;
+            document.getElementById('stat-total').textContent = stats.total;
+            document.getElementById('stat-success').textContent = stats.success;
+            document.getElementById('stat-429').textContent = stats.throttled;
+            document.getElementById('stat-failover').textContent = stats.failover;
+
+            if (total > 0) {
+                const ep = Math.round((stats.east / total) * 100);
+                document.getElementById('bar-east').style.width = ep + '%';
+                document.getElementById('bar-east-pct').textContent = ep + '%';
+                document.getElementById('bar-sweden').style.width = (100 - ep) + '%';
+                document.getElementById('bar-sweden-pct').textContent = (100 - ep) + '%';
+            }
+            animateFlow(region, status);
+        }
+
+        /* ---- Architecture Animation ---- */
+        function animateFlow(region, status) {
+            const nApim = document.getElementById('node-apim');
+            const nEast = document.getElementById('node-east');
+            const nSweden = document.getElementById('node-sweden');
+            const lUA = document.getElementById('line-user-apim');
+            const lE = document.getElementById('line-apim-east');
+            const lS = document.getElementById('line-apim-sweden');
+
+            nApim.classList.add('node-active');
+            lUA.classList.add('flow-active');
+            lUA.setAttribute('stroke', '#0078d4');
+
+            if (status === 429) {
+                if (region === 'swedencentral') {
+                    nSweden.classList.add('node-throttled');
+                    lS.classList.add('flow-active'); lS.setAttribute('stroke', '#dc3545');
+                    stats.failover++; document.getElementById('stat-failover').textContent = stats.failover;
+                } else if (region === 'eastus2') {
+                    nEast.classList.add('node-throttled');
+                    lE.classList.add('flow-active'); lE.setAttribute('stroke', '#dc3545');
+                    stats.failover++; document.getElementById('stat-failover').textContent = stats.failover;
+                }
+            } else if (status === 200) {
+                if (region === 'eastus2') {
+                    nEast.classList.add('node-active'); lE.classList.add('flow-active');
+                    lE.setAttribute('stroke', '#4caf50'); nEast.classList.remove('node-throttled');
+                } else if (region === 'swedencentral') {
+                    nSweden.classList.add('node-active'); lS.classList.add('flow-active');
+                    lS.setAttribute('stroke', '#ff9800'); nSweden.classList.remove('node-throttled');
+                }
+            }
+
+            setTimeout(() => {
+                nApim.classList.remove('node-active');
+                nEast.classList.remove('node-active');
+                nSweden.classList.remove('node-active');
+                lUA.classList.remove('flow-active'); lE.classList.remove('flow-active'); lS.classList.remove('flow-active');
+                lUA.setAttribute('stroke', '#999');
+                lE.setAttribute('stroke', '#4caf50');
+                lS.setAttribute('stroke', '#ff9800');
+            }, 800);
+        }
+
+        /* ---- Process server response ---- */
+        function processResponse(data) {
+            if (data.headers_info) {
+                animatePolicy(data.headers_info.pipeline);
+                updateHeaders(data.headers_info);
+            }
+            updatePoolStatus(data.region, data.status || 200);
+        }
+
+        /* ---- Chat ---- */
+        async function sendMessage() {
+            const text = userInput.value.trim();
+            if (!text) return;
+            appendMessage('user', text);
+            userInput.value = '';
+            sendBtn.disabled = true;
+            const typingEl = appendTyping();
+
+            try {
+                const response = await fetch('/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: text, mode: document.getElementById('mode-select').value })
+                });
+                typingEl.remove();
+                if (!response.ok) {
+                    appendMessage('assistant', '⚠️ Error: ' + response.status + ' ' + response.statusText);
+                    return;
+                }
+                const data = await response.json();
+                const region = data.region || 'unknown';
+                updateDashboard(region, 200);
+                logEvent(200, region, '', text, data.response);
+                processResponse(data);
+                appendMessage('assistant', data.response, region);
+            } catch (err) {
+                typingEl.remove();
+                appendMessage('assistant', '⚠️ Connection error: ' + err.message);
+            } finally {
+                sendBtn.disabled = false;
+                userInput.focus();
+            }
+        }
+
+        /* ---- Load Test ---- */
+        async function toggleLoadTest() {
+            const btn = document.getElementById('load-test-btn');
+            if (loadTestRunning) {
+                loadTestRunning = false;
+                if (loadTestAbort) loadTestAbort.abort();
+                btn.textContent = '⚡ Run Load Test';
+                btn.classList.remove('running');
+                return;
+            }
+            loadTestRunning = true;
+            loadTestAbort = new AbortController();
+            btn.textContent = '⏹ Stop Load Test';
+            btn.classList.add('running');
+
+            logEvent(0, '---', '🚀 Load test started (30 reqs, concurrency 10)');
+
+            const total = 30, concurrency = 10;
+
+            const runOne = async (i) => {
+                if (!loadTestRunning) return;
+                const start = performance.now();
+                try {
+                    const resp = await fetch('/load-test-proxy', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ id: i }),
+                        signal: loadTestAbort.signal
+                    });
+                    const elapsed = ((performance.now() - start) / 1000).toFixed(2);
+                    const data = await resp.json();
+                    const region = data.region || 'unknown';
+                    updateDashboard(region, data.status);
+                    logEvent(data.status, region, '#' + i + ' ' + elapsed + 's', data.prompt || '', data.answer || '');
+                    processResponse(data);
+                } catch (e) {
+                    if (e.name !== 'AbortError') logEvent(0, 'error', e.message);
+                }
+            };
+
+            const queue = Array.from({length: total}, (_, i) => i + 1);
+            const workers = Array.from({length: concurrency}, async () => {
+                while (queue.length > 0 && loadTestRunning) {
+                    const i = queue.shift();
+                    if (i !== undefined) await runOne(i);
+                }
+            });
+            await Promise.all(workers);
+
+            loadTestRunning = false;
+            btn.textContent = '⚡ Run Load Test';
+            btn.classList.remove('running');
+            logEvent(0, '---', '✅ Done: ' + stats.success + ' ok, ' + stats.throttled + ' throttled, ' + stats.failover + ' failovers');
+        }
+
+        function appendMessage(role, text, region) {
+            const div = document.createElement('div');
+            div.className = 'message ' + role;
+            div.textContent = text;
+            if (region && role === 'assistant') {
+                const tag = document.createElement('div');
+                tag.className = 'region-tag region-' + region;
+                tag.textContent = '🌐 ' + region;
+                div.appendChild(tag);
+            }
+            chatContainer.appendChild(div);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+            return div;
+        }
+        function appendTyping() {
+            const div = document.createElement('div');
+            div.className = 'message assistant typing-indicator';
+            div.innerHTML = '<span></span><span></span><span></span>';
+            chatContainer.appendChild(div);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+            return div;
+        }
+
+        /* ---- Align SVG lines to actual node positions ---- */
+        function alignLines() {
+            const diagram = document.querySelector('.arch-diagram');
+            if (!diagram) return;
+            const dr = diagram.getBoundingClientRect();
+
+            const nUser = document.getElementById('node-user');
+            const nApim = document.getElementById('node-apim');
+            const nEast = document.getElementById('node-east');
+            const nSweden = document.getElementById('node-sweden');
+
+            function cx(el) { const r = el.getBoundingClientRect(); return r.left + r.width / 2 - dr.left; }
+            function top(el) { return el.getBoundingClientRect().top - dr.top; }
+            function bot(el) { return el.getBoundingClientRect().bottom - dr.top; }
+
+            const svg = document.getElementById('arch-svg');
+            svg.setAttribute('viewBox', '0 0 ' + dr.width + ' ' + dr.height);
+
+            const lUA = document.getElementById('line-user-apim');
+            lUA.setAttribute('x1', cx(nUser));  lUA.setAttribute('y1', bot(nUser));
+            lUA.setAttribute('x2', cx(nApim));  lUA.setAttribute('y2', top(nApim));
+
+            const lAE = document.getElementById('line-apim-east');
+            lAE.setAttribute('x1', cx(nApim));  lAE.setAttribute('y1', bot(nApim));
+            lAE.setAttribute('x2', cx(nEast));  lAE.setAttribute('y2', top(nEast));
+
+            const lAS = document.getElementById('line-apim-sweden');
+            lAS.setAttribute('x1', cx(nApim));   lAS.setAttribute('y1', bot(nApim));
+            lAS.setAttribute('x2', cx(nSweden)); lAS.setAttribute('y2', top(nSweden));
+        }
+
+        window.addEventListener('load', alignLines);
+        window.addEventListener('resize', alignLines);
+    </script>
+</body>
+</html>

@@ -1,0 +1,8 @@
+azure-ai-projects==2.0.1
+azure-ai-agents==1.1.0
+azure-identity==1.21.0
+fastapi==0.115.12
+uvicorn==0.34.0
+python-dotenv==1.1.0
+sse-starlette==2.2.1
+httpx==0.28.1
