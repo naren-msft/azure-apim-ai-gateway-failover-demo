@@ -6,9 +6,9 @@
 
 ## 🎬 Demo Video
 
-https://github.com/user-attachments/assets/demo-video
-
-> **[▶️ Watch the full demo video](https://github.com/naren-msft/azure-apim-ai-gateway-failover-demo/releases/download/v1.0/demo-video.mp4)** — Shows the live dashboard with 429 failover, circuit breaker tripping, policy animation, and traffic shifting between regions in real time.
+<video src="https://github.com/naren-msft/azure-apim-ai-gateway-failover-demo/releases/download/v1.0/demo-video.mp4" width="100%" controls autoplay muted>
+  Your browser does not support the video tag.
+</video>
 
 ## Architecture
 
