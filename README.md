@@ -6,8 +6,7 @@
 
 ## 🎬 Demo Video
 
-<video src="https://github.com/naren-msft/azure-apim-ai-gateway-failover-demo/raw/master/assets/demo-video.mp4" width="100%" autoplay muted loop controls playsinline>
-</video>
+![Azure APIM AI Gateway Failover Demo](assets/demo.gif)
 
 ## Architecture
 
